@@ -169,6 +169,7 @@ async def search_epg(
         idx += 1
 
     where = " AND ".join(conditions)
+    params.append(limit)
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -180,7 +181,7 @@ async def search_epg(
                 WHERE {where}
                 ORDER BY e.start_time ASC
                 LIMIT ${idx}""",
-            *params, limit,
+            *params,
         )
 
     programs = [{
