@@ -3,9 +3,9 @@
   <h1>ISTV API</h1>
   <p><strong>Free IPTV Channel API</strong> — 1.045+ channel TV live dari Indonesia & 27+ negara</p>
   <p>
-    <a href="https://istv-azure.vercel.app/api/v1/docs">Swagger Docs</a> ·
-    <a href="https://istv-azure.vercel.app/api/v1/stats">Stats</a> ·
-    <a href="https://istv-azure.vercel.app/api/v1/playlist.m3u">Playlist M3U</a>
+    <a href="https://istv-api.vercel.app/api/v1/docs">Swagger Docs</a> ·
+    <a href="https://istv-api.vercel.app/api/v1/stats">Stats</a> ·
+    <a href="https://istv-api.vercel.app/api/v1/playlist.m3u">Playlist M3U</a>
   </p>
   <p>
     <img src="https://img.shields.io/badge/python-3.12-blue" alt="Python"/>
@@ -22,10 +22,10 @@ Dibuat oleh [Ibra Decode](https://github.com/IbraDecode) dengan fokus pada keama
 ## Base URL
 
 ```
-https://istv-azure.vercel.app
+https://istv-api.vercel.app
 ```
 
-Dokumentasi interaktif: [https://istv-azure.vercel.app/api/v1/docs](https://istv-azure.vercel.app/api/v1/docs)
+Dokumentasi interaktif: [https://istv-api.vercel.app/api/v1/docs](https://istv-api.vercel.app/api/v1/docs)
 
 ---
 
@@ -33,29 +33,44 @@ Dokumentasi interaktif: [https://istv-azure.vercel.app/api/v1/docs](https://istv
 
 ```bash
 # Semua channel
-curl "https://istv-azure.vercel.app/api/v1/channels?page=1&limit=5"
+curl "https://istv-api.vercel.app/api/v1/channels?page=1&limit=5"
 
 # Cari channel
-curl "https://istv-azure.vercel.app/api/v1/search?q=TVRI"
+curl "https://istv-api.vercel.app/api/v1/search?q=TVRI"
+
+# Cari channel + EPG sekaligus
+curl "https://istv-api.vercel.app/api/v1/search/all?q=World"
 
 # Acara sedang tayang
-curl "https://istv-azure.vercel.app/api/v1/epg/now"
+curl "https://istv-api.vercel.app/api/v1/epg/now"
+
+# Acara sekarang + berikutnya
+curl "https://istv-api.vercel.app/api/v1/epg/now?upcoming=true"
+
+# Acara yang akan datang (N jam ke depan)
+curl "https://istv-api.vercel.app/api/v1/epg/upcoming?hours=6"
+
+# Cari program EPG (multi-field: title, description, all)
+curl "https://istv-api.vercel.app/api/v1/epg/search?q=Bola&fields=all"
+
+# Channel acak
+curl "https://istv-api.vercel.app/api/v1/channels/random?limit=5"
+
+# Channel serupa
+curl "https://istv-api.vercel.app/api/v1/channels/TVRI.id/similar"
+
+# Cek ketersediaan stream
+curl "https://istv-api.vercel.app/api/v1/channels/TVRI.id/check"
 
 # Download playlist
-curl -o playlist.m3u "https://istv-azure.vercel.app/api/v1/playlist.m3u"
-curl -o playlist-ott.m3u "https://istv-azure.vercel.app/api/v1/playlist.m3u?ott=true"
-
-# Playlist JSON
-curl -o playlist.json "https://istv-azure.vercel.app/api/v1/playlist.json"
+curl -o playlist.m3u "https://istv-api.vercel.app/api/v1/playlist.m3u"
+curl -o playlist-ott.m3u "https://istv-api.vercel.app/api/v1/playlist.m3u?ott=true"
 
 # Statistik
-curl "https://istv-azure.vercel.app/api/v1/stats"
-
-# Cari program EPG
-curl "https://istv-azure.vercel.app/api/v1/epg/search?q=Bola"
+curl "https://istv-api.vercel.app/api/v1/stats"
 
 # Daftar negara
-curl "https://istv-azure.vercel.app/api/v1/countries"
+curl "https://istv-api.vercel.app/api/v1/countries"
 ```
 
 ---
@@ -69,8 +84,11 @@ curl "https://istv-azure.vercel.app/api/v1/countries"
 | GET | `/api/v1/channels` | Semua channel (pagination + filter) |
 | GET | `/api/v1/channels/{tvg_id}` | Detail channel + EPG now/next |
 | GET | `/api/v1/channels/{tvg_id}/stream` | Info stream URL + headers |
+| GET | `/api/v1/channels/{tvg_id}/check` | Cek ketersediaan stream (HEAD request) |
+| GET | `/api/v1/channels/{tvg_id}/similar` | Channel serupa (kategori sama) |
+| GET | `/api/v1/channels/random` | Channel acak (include `epg_now`, cache 1 jam) |
 
-**Filter `/channels`:**
+**Filter `/channels` & `/channels/random`:**
 
 | Parameter | Type | Deskripsi |
 |-----------|------|-----------|
@@ -82,17 +100,30 @@ curl "https://istv-azure.vercel.app/api/v1/countries"
 | `page` | int | Halaman (default: 1) |
 | `limit` | int | Maks 100 per halaman |
 
-### Categories
+**Response `/channels/{tvg_id}/check`:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "tvg_id": "TVRI.id",
+    "url": "https://...",
+    "stream_type": "hls",
+    "has_drm": false,
+    "reachable": true,
+    "status_code": 200,
+    "response_time_ms": 361.4,
+    "error": null
+  }
+}
+```
+
+### Categories & Countries
 
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
 | GET | `/api/v1/categories` | Semua kategori + jumlah channel |
 | GET | `/api/v1/categories/{name}/channels` | Channel dalam kategori |
-
-### Countries
-
-| Method | Endpoint | Deskripsi |
-|--------|----------|-----------|
 | GET | `/api/v1/countries` | Semua negara + jumlah channel |
 | GET | `/api/v1/countries/{name}/channels` | Channel per negara |
 
@@ -101,10 +132,37 @@ curl "https://istv-azure.vercel.app/api/v1/countries"
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
 | GET | `/api/v1/epg` | Semua jadwal (filter: `channel`, `date`) |
-| GET | `/api/v1/epg/now` | Acara sedang tayang di semua channel |
+| GET | `/api/v1/epg/now` | Acara sedang tayang (filter: placeholder otomatis) |
+| GET | `/api/v1/epg/now?upcoming=true` | Acara sekarang + berikutnya |
 | GET | `/api/v1/epg/now/{tvg_id}` | Acara sekarang di channel tertentu |
 | GET | `/api/v1/epg/{tvg_id}` | Jadwal channel tertentu |
-| GET | `/api/v1/epg/search?q=` | Cari program EPG |
+| GET | `/api/v1/epg/search` | Cari program EPG (pagination + multi-field) |
+| GET | `/api/v1/epg/upcoming` | Program yang akan tayang (parameter `hours`) |
+
+**Parameter EPG Search:**
+
+| Parameter | Type | Default | Deskripsi |
+|-----------|------|---------|-----------|
+| `q` | string | — | Query pencarian (wajib) |
+| `fields` | string | `title` | Field dicari: `title`, `description`, `all` |
+| `channel` | string | — | Filter channel tvg_id |
+| `date` | string | — | Filter tanggal (YYYY-MM-DD) |
+| `page` | int | 1 | Halaman |
+| `limit` | int | 20 | Maks 100 |
+
+**Parameter EPG Upcoming:**
+
+| Parameter | Type | Default | Deskripsi |
+|-----------|------|---------|-----------|
+| `hours` | int | 6 | Jeda waktu ke depan (1-72) |
+| `channel` | string | — | Filter channel |
+
+### Search
+
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| GET | `/api/v1/search?q=` | Cari channel (ranked by relevance) |
+| GET | `/api/v1/search/all?q=` | Cari channel + EPG program sekaligus |
 
 ### Playlist
 
@@ -116,17 +174,11 @@ curl "https://istv-azure.vercel.app/api/v1/countries"
 
 **Filter playlist:** `?group=`, `?type=hls`, `?ott=true` (no DRM), `?limit=N`
 
-### Search & Stats
+### Stats & System
 
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
-| GET | `/api/v1/search?q=` | Cari channel (ranked by relevance) |
-| GET | `/api/v1/stats` | Statistik lengkap |
-
-### System
-
-| Method | Endpoint | Deskripsi |
-|--------|----------|-----------|
+| GET | `/api/v1/stats` | Statistik lengkap + cache metrics |
 | GET | `/health` | Health check |
 | POST | `/api/v1/admin/reload` | Reload data dari source |
 | GET | `/api/v1/docs` | Swagger UI |
@@ -192,7 +244,7 @@ ISTV API menerapkan lapisan keamanan berlapis:
 | **Security Headers** | HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy |
 | **SQL Injection** | 100% parameterized queries (`$1`, `$2`, ...) |
 | **Input Validation** | Pydantic validasi tipe, length, regex |
-| **Error Handling** | No stack trace di production |
+| **Error Handling** | No stack trace di production, consistent error codes |
 | **CORS** | Terkontrol via environment |
 | **HTTPS Only** | HSTS preload |
 
@@ -205,7 +257,7 @@ ISTV API menerapkan lapisan keamanan berlapis:
 | **Bahasa** | Python 3.12 |
 | **Framework** | FastAPI |
 | **Database** | PostgreSQL (NeonDB) |
-| **Cache** | In-memory (TTL) |
+| **Cache** | In-memory LRU (max 500 entries, hit/miss metrics via `/stats`) |
 | **Parser** | Custom M3U & XMLTV parser |
 | **Deploy** | Vercel (serverless) / Docker |
 | **Auto-Reload** | GitHub Actions (daily) |
