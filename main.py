@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import time
 import httpx
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect, Query
@@ -8,6 +9,7 @@ import uvicorn
 from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import get_settings
 from app.database import create_pool, close_pool, get_pool
@@ -15,7 +17,7 @@ from app.middleware.security import SecurityHeadersMiddleware, RateLimitMiddlewa
 from app.models.database import CREATE_SCHEMA_SQL
 from app.routers.admin import load_data_on_startup
 from app.routers import channels, categories, countries, epg, playlist, search, stats, admin
-from app.cache import get as cache_get, set as cache_set
+from app import cache
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,6 +29,15 @@ IS_VERCEL = os.environ.get("VERCEL", "").lower() == "1"
 
 _ws_clients: set[WebSocket] = set()
 _reload_task: asyncio.Task | None = None
+_start_time: float = time.time()
+_request_count: int = 0
+
+
+class MetricsMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        global _request_count
+        _request_count += 1
+        return await call_next(request)
 
 
 async def _broadcast_now():
@@ -143,6 +154,7 @@ origins = (
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(MetricsMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -168,18 +180,35 @@ app.include_router(admin.router)
 
 @app.get("/health")
 async def health():
+    global _start_time
+    uptime_s = int(time.time() - _start_time)
+    db_status = "unhealthy"
+    db_latency = None
     try:
         pool = await get_pool()
+        t0 = time.time()
         async with pool.acquire() as conn:
             await conn.fetchval("SELECT 1")
+        db_latency = round((time.time() - t0) * 1000, 1)
         db_status = "healthy"
     except Exception:
-        db_status = "unhealthy"
+        pass
 
     return {
         "status": "ok",
         "version": "3.0.0",
-        "database": db_status,
+        "uptime": {
+            "seconds": uptime_s,
+            "human": f"{uptime_s // 86400}d {(uptime_s % 86400) // 3600}h {(uptime_s % 3600) // 60}m",
+        },
+        "database": {
+            "status": db_status,
+            "latency_ms": db_latency,
+        },
+        "cache": cache.stats(),
+        "requests": {
+            "total": _request_count,
+        },
     }
 
 
@@ -230,13 +259,13 @@ async def export_channels_csv(
 async def stream_proxy(url: str = Query(..., description="Stream URL to proxy")):
     """Proxy stream URL untuk bypass CORS/geo restriction. Meneruskan content-type asli."""
     cache_key = f"proxy:headers:{url}"
-    cached = cache_get(cache_key)
+    cached = cache.get(cache_key)
     if not cached:
         try:
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
                 head = await client.head(url, headers={"User-Agent": "ISTV/3.0"})
                 cached = dict(head.headers)
-                cache_set(cache_key, cached, 300)
+                cache.set(cache_key, cached, 300)
         except Exception:
             cached = {}
 
