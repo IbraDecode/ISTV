@@ -111,8 +111,40 @@ async def get_now_playing(
     return ApiResponse(success=True, data=programs)
 
 
+@router.get("/api/v1/epg/program/{program_id}", response_model=ApiResponse)
+async def get_program_detail(program_id: int):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        r = await conn.fetchrow(
+            """SELECT e.id, e.channel_tvg_id, e.title, e.description,
+                      e.start_time, e.end_time, e.category,
+                      c.name as channel_name, c.logo as channel_logo,
+                      c.stream_type, c.url as stream_url
+               FROM epg_programs e
+               LEFT JOIN channels c ON c.tvg_id = e.channel_tvg_id
+               WHERE e.id = $1""",
+            program_id,
+        )
+    if not r:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    return ApiResponse(success=True, data={
+        "id": r["id"],
+        "channel_tvg_id": r["channel_tvg_id"],
+        "title": r["title"],
+        "description": r["description"],
+        "start_time": r["start_time"].isoformat(),
+        "end_time": r["end_time"].isoformat(),
+        "category": r["category"],
+        "channel_name": r["channel_name"],
+        "channel_logo": r["channel_logo"],
+        "stream_type": r["stream_type"],
+        "stream_url": r["stream_url"],
+    })
+
+
 @router.get("/api/v1/epg/now/{tvg_id}", response_model=ApiResponse)
-async def get_channel_now(tvg_id: str):
+async def get_channel_now(tvg_id: str, upcoming: bool = Query(False, description="Include next program")):
     now = datetime.now(timezone.utc)
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -127,13 +159,31 @@ async def get_channel_now(tvg_id: str):
     if not r:
         return ApiResponse(success=True, data=None)
 
-    return ApiResponse(success=True, data={
+    data = {
         "id": r["id"], "channel_tvg_id": r["channel_tvg_id"],
         "title": r["title"], "description": r["description"],
         "start_time": r["start_time"].isoformat(),
         "end_time": r["end_time"].isoformat(),
         "category": r["category"],
-    })
+    }
+
+    if upcoming:
+        pool2 = await get_pool()
+        async with pool2.acquire() as conn2:
+            nxt = await conn2.fetchrow(
+                """SELECT title, start_time, end_time
+                   FROM epg_programs
+                   WHERE channel_tvg_id = $1 AND start_time > $2
+                   ORDER BY start_time ASC LIMIT 1""",
+                tvg_id, now,
+            )
+            data["next"] = {
+                "title": nxt["title"],
+                "start_time": nxt["start_time"].isoformat(),
+                "end_time": nxt["end_time"].isoformat(),
+            } if nxt else None
+
+    return ApiResponse(success=True, data=data)
 
 
 @router.get("/api/v1/epg/search", response_model=ApiResponse)

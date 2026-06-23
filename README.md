@@ -1,11 +1,11 @@
 <div align="center">
-  <img src="https://avatars.githubusercontent.com/u/244273660?v=4&size=128" width="128" height="128" style="border-radius:50%" alt="Ibra Decode"/>
+  <img src="https://avatars.githubusercontent.com/u/244273660?v=4&size=256" width="128" height="128" style="border-radius:50%" alt="IbraDecode"/>
   <h1>ISTV API</h1>
   <p><strong>Free IPTV Channel API</strong> — 1.045+ channel TV live dari Indonesia & 27+ negara</p>
   <p>
-    <a href="https://istv-api.vercel.app/api/v1/docs">Swagger Docs</a> ·
-    <a href="https://istv-api.vercel.app/api/v1/stats">Stats</a> ·
-    <a href="https://istv-api.vercel.app/api/v1/playlist.m3u">Playlist M3U</a>
+    <a href="https://tv-api.isplay.my.id/api/v1/docs">Swagger Docs</a> ·
+    <a href="https://tv-api.isplay.my.id/api/v1/stats">Stats</a> ·
+    <a href="https://tv-api.isplay.my.id/api/v1/playlist.m3u">Playlist M3U</a>
   </p>
   <p>
     <img src="https://img.shields.io/badge/python-3.12-blue" alt="Python"/>
@@ -17,15 +17,15 @@
 
 ---
 
-Dibuat oleh [Ibra Decode](https://github.com/IbraDecode) dengan fokus pada keamanan, performa, dan kemudahan penggunaan.
+Dibuat oleh [IbraDecode](https://github.com/IbraDecode) dengan organisasi tim **Decode Labs**.
 
 ## Base URL
 
 ```
-https://istv-api.vercel.app
+https://tv-api.isplay.my.id
 ```
 
-Dokumentasi interaktif: [https://istv-api.vercel.app/api/v1/docs](https://istv-api.vercel.app/api/v1/docs)
+Dokumentasi interaktif: [https://tv-api.isplay.my.id/api/v1/docs](https://tv-api.isplay.my.id/api/v1/docs)
 
 ---
 
@@ -33,44 +33,44 @@ Dokumentasi interaktif: [https://istv-api.vercel.app/api/v1/docs](https://istv-a
 
 ```bash
 # Semua channel
-curl "https://istv-api.vercel.app/api/v1/channels?page=1&limit=5"
+curl "https://tv-api.isplay.my.id/api/v1/channels?page=1&limit=5"
 
 # Cari channel
-curl "https://istv-api.vercel.app/api/v1/search?q=TVRI"
+curl "https://tv-api.isplay.my.id/api/v1/search?q=TVRI"
 
 # Cari channel + EPG sekaligus
-curl "https://istv-api.vercel.app/api/v1/search/all?q=World"
+curl "https://tv-api.isplay.my.id/api/v1/search/all?q=World"
 
 # Acara sedang tayang
-curl "https://istv-api.vercel.app/api/v1/epg/now"
+curl "https://tv-api.isplay.my.id/api/v1/epg/now"
 
 # Acara sekarang + berikutnya
-curl "https://istv-api.vercel.app/api/v1/epg/now?upcoming=true"
+curl "https://tv-api.isplay.my.id/api/v1/epg/now?upcoming=true"
 
 # Acara yang akan datang (N jam ke depan)
-curl "https://istv-api.vercel.app/api/v1/epg/upcoming?hours=6"
+curl "https://tv-api.isplay.my.id/api/v1/epg/upcoming?hours=6"
 
 # Cari program EPG (multi-field: title, description, all)
-curl "https://istv-api.vercel.app/api/v1/epg/search?q=Bola&fields=all"
+curl "https://tv-api.isplay.my.id/api/v1/epg/search?q=Bola&fields=all"
 
 # Channel acak
-curl "https://istv-api.vercel.app/api/v1/channels/random?limit=5"
+curl "https://tv-api.isplay.my.id/api/v1/channels/random?limit=5"
 
 # Channel serupa
-curl "https://istv-api.vercel.app/api/v1/channels/TVRI.id/similar"
+curl "https://tv-api.isplay.my.id/api/v1/channels/TVRI.id/similar"
 
 # Cek ketersediaan stream
-curl "https://istv-api.vercel.app/api/v1/channels/TVRI.id/check"
+curl "https://tv-api.isplay.my.id/api/v1/channels/TVRI.id/check"
 
 # Download playlist
-curl -o playlist.m3u "https://istv-api.vercel.app/api/v1/playlist.m3u"
-curl -o playlist-ott.m3u "https://istv-api.vercel.app/api/v1/playlist.m3u?ott=true"
+curl -o playlist.m3u "https://tv-api.isplay.my.id/api/v1/playlist.m3u"
+curl -o playlist-ott.m3u "https://tv-api.isplay.my.id/api/v1/playlist.m3u?ott=true"
 
 # Statistik
-curl "https://istv-api.vercel.app/api/v1/stats"
+curl "https://tv-api.isplay.my.id/api/v1/stats"
 
 # Daftar negara
-curl "https://istv-api.vercel.app/api/v1/countries"
+curl "https://tv-api.isplay.my.id/api/v1/countries"
 ```
 
 ---
@@ -266,4 +266,4 @@ ISTV API menerapkan lapisan keamanan berlapis:
 
 ## Lisensi
 
-MIT License &copy; 2026 [Ibra Decode](https://github.com/IbraDecode) — bebas digunakan, dimodifikasi, dan didistribusikan.
+MIT License &copy; 2026 [IbraDecode](https://github.com/IbraDecode) — bebas digunakan, dimodifikasi, dan didistribusikan.
