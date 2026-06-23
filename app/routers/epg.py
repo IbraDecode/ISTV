@@ -112,41 +112,6 @@ async def get_channel_now(tvg_id: str):
     })
 
 
-@router.get("/api/v1/epg/{tvg_id}", response_model=ApiResponse)
-async def get_channel_epg(
-    tvg_id: str,
-    page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=200),
-):
-    now = datetime.now(timezone.utc)
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        total = (await conn.fetchval(
-            "SELECT COUNT(*) FROM epg_programs WHERE channel_tvg_id = $1 AND end_time > $2",
-            tvg_id, now,
-        )) or 0
-        offset = (page - 1) * limit
-        rows = await conn.fetch(
-            """SELECT id, channel_tvg_id, title, description,
-                      start_time, end_time, category
-               FROM epg_programs
-               WHERE channel_tvg_id = $1 AND end_time > $2
-               ORDER BY start_time ASC
-                LIMIT $3 OFFSET $4""",
-             tvg_id, now, limit, offset,
-        )
-
-    programs = [{
-        "id": r["id"], "channel_tvg_id": r["channel_tvg_id"],
-        "title": r["title"], "description": r["description"],
-        "start_time": r["start_time"].isoformat(),
-        "end_time": r["end_time"].isoformat(),
-        "category": r["category"],
-    } for r in rows]
-
-    return ApiResponse(success=True, data=programs)
-
-
 @router.get("/api/v1/epg/search", response_model=ApiResponse)
 async def search_epg(
     q: str = Query(..., min_length=1, max_length=200, description="Search program title"),
@@ -191,6 +156,41 @@ async def search_epg(
         "end_time": r["end_time"].isoformat(),
         "category": r["category"],
         "channel_name": r["channel_name"],
+    } for r in rows]
+
+    return ApiResponse(success=True, data=programs)
+
+
+@router.get("/api/v1/epg/{tvg_id}", response_model=ApiResponse)
+async def get_channel_epg(
+    tvg_id: str,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+):
+    now = datetime.now(timezone.utc)
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        total = (await conn.fetchval(
+            "SELECT COUNT(*) FROM epg_programs WHERE channel_tvg_id = $1 AND end_time > $2",
+            tvg_id, now,
+        )) or 0
+        offset = (page - 1) * limit
+        rows = await conn.fetch(
+            """SELECT id, channel_tvg_id, title, description,
+                      start_time, end_time, category
+                FROM epg_programs
+                WHERE channel_tvg_id = $1 AND end_time > $2
+                ORDER BY start_time ASC
+                 LIMIT $3 OFFSET $4""",
+             tvg_id, now, limit, offset,
+        )
+
+    programs = [{
+        "id": r["id"], "channel_tvg_id": r["channel_tvg_id"],
+        "title": r["title"], "description": r["description"],
+        "start_time": r["start_time"].isoformat(),
+        "end_time": r["end_time"].isoformat(),
+        "category": r["category"],
     } for r in rows]
 
     return ApiResponse(success=True, data=programs)
