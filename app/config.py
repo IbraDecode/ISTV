@@ -5,6 +5,7 @@ from functools import lru_cache
 class Settings(BaseSettings):
     database_url: str = "postgresql://localhost:5432/istv"
     secret_key: str = "change-me"
+    admin_api_key: str = "bacotbacot"
     api_rate_limit: int = 100
     api_rate_window: int = 60
     host: str = "0.0.0.0"

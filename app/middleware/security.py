@@ -4,6 +4,7 @@ import asyncio
 import logging
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
 
 from app.config import get_settings
@@ -109,3 +110,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return True
         except ValueError:
             return False
+
+
+class AdminAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path.startswith("/api/v1/admin/"):
+            settings = get_settings()
+            key = request.headers.get("x-api-key", "")
+            if key != settings.admin_api_key:
+                return JSONResponse(
+                    status_code=401,
+                    content={"success": False, "error": "Invalid or missing API key", "code": 401},
+                )
+        return await call_next(request)

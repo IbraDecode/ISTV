@@ -1,5 +1,6 @@
 import json
-from fastapi import APIRouter, HTTPException
+import asyncio
+from fastapi import APIRouter, HTTPException, Query
 import httpx
 
 from app.database import get_pool
@@ -7,6 +8,7 @@ from app.models.database import TRUNCATE_SQL
 from app.parser.m3u import parse_m3u
 from app.parser.epg_xml import parse_epg
 from app.config import get_settings
+from app import cache
 
 router = APIRouter(tags=["Admin"])
 
@@ -225,5 +227,47 @@ async def cleanup_epg_placeholders():
         "data": {
             "deleted_placeholders": deleted,
             "deleted_duplicates": dedup,
+        },
+    }
+
+
+@router.post("/api/v1/admin/flush-cache")
+async def flush_cache():
+    """Hapus semua cache in-memory."""
+    cache.invalidate()
+    return {"success": True, "data": {"message": "Cache flushed"}}
+
+
+@router.get("/api/v1/admin/health-check")
+async def mass_health_check(
+    limit: int = Query(20, ge=1, le=100, description="Jumlah channel yang dicek"),
+    timeout: int = Query(5, ge=1, le=10, description="Timeout per request (detik)"),
+):
+    """Cek ketersediaan stream untuk N channel secara acak. Report reachable/unreachable count."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT tvg_id, name, url FROM channels WHERE is_active = TRUE AND has_drm = FALSE ORDER BY RANDOM() LIMIT $1",
+            limit,
+        )
+
+    results = []
+    async with httpx.AsyncClient(timeout=httpx.Timeout(timeout), follow_redirects=True) as client:
+        for r in rows:
+            try:
+                resp = await client.head(r["url"], headers={"User-Agent": "ISTV/3.0"})
+                ok = resp.status_code < 500
+                results.append({"tvg_id": r["tvg_id"], "name": r["name"], "reachable": ok, "status": resp.status_code})
+            except Exception as e:
+                results.append({"tvg_id": r["tvg_id"], "name": r["name"], "reachable": False, "error": str(e)[:60]})
+
+    reachable = sum(1 for r in results if r["reachable"])
+    return {
+        "success": True,
+        "data": {
+            "checked": len(results),
+            "reachable": reachable,
+            "unreachable": len(results) - reachable,
+            "details": results,
         },
     }
