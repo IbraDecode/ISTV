@@ -53,9 +53,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                        WHERE ip_address = $1 AND requested_at >= to_timestamp($2)""",
                     client_ip, window_start,
                 )
+                current = int(count) if count else 0
+                remaining = max(0, settings.api_rate_limit - current)
 
-                if count and int(count) >= settings.api_rate_limit:
-                    logger.warning(f"Rate limit hit: {client_ip} ({count} req/{settings.api_rate_window}s)")
+                if current >= settings.api_rate_limit:
+                    logger.warning(f"Rate limit hit: {client_ip} ({current} req/{settings.api_rate_window}s)")
                     return Response(
                         content=(
                             '{"success":false,"error":"Rate limit exceeded. Max '
@@ -64,21 +66,26 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         ),
                         status_code=429,
                         media_type="application/json",
-                        headers={"Retry-After": str(settings.api_rate_window)},
+                        headers={
+                            "Retry-After": str(settings.api_rate_window),
+                            "X-RateLimit-Limit": str(settings.api_rate_limit),
+                            "X-RateLimit-Remaining": "0",
+                            "X-RateLimit-Reset": str(int(time.time() + settings.api_rate_window)),
+                        },
                     )
 
                 await conn.execute(
                     "INSERT INTO rate_limits (ip_address, endpoint, requested_at) VALUES ($1, $2, NOW())",
                     client_ip, request.url.path,
                 )
-
                 await conn.execute(
                     "DELETE FROM rate_limits WHERE requested_at < NOW() - INTERVAL '1 hour'"
                 )
-        except Exception as e:
-            logger.warning(f"Rate limit error: {e}")
 
-        return await call_next(request)
+            response = await call_next(request)
+            response.headers["X-RateLimit-Limit"] = str(settings.api_rate_limit)
+            response.headers["X-RateLimit-Remaining"] = str(remaining)
+            return response
 
     def _get_client_ip(self, request: Request) -> str:
         forwarded = request.headers.get("X-Forwarded-For")

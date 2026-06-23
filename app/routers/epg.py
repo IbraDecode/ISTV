@@ -132,8 +132,8 @@ async def get_channel_epg(
                FROM epg_programs
                WHERE channel_tvg_id = $1 AND end_time > $2
                ORDER BY start_time ASC
-               LIMIT $3 OFFSET $4""",
-            tvg_id, now, limit, offset,
+                LIMIT $3 OFFSET $4""",
+             tvg_id, now, limit, offset,
         )
 
     programs = [{
@@ -142,6 +142,54 @@ async def get_channel_epg(
         "start_time": r["start_time"].isoformat(),
         "end_time": r["end_time"].isoformat(),
         "category": r["category"],
+    } for r in rows]
+
+    return ApiResponse(success=True, data=programs)
+
+
+@router.get("/api/v1/epg/search", response_model=ApiResponse)
+async def search_epg(
+    q: str = Query(..., min_length=1, max_length=200, description="Search program title"),
+    channel: str | None = Query(None, description="Filter by channel tvg_id"),
+    date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    limit: int = Query(20, ge=1, le=100),
+):
+    pool = await get_pool()
+    conditions = ["e.title ILIKE $1"]
+    params = [f"%{q}%"]
+    idx = 2
+
+    if channel:
+        conditions.append(f"e.channel_tvg_id = ${idx}")
+        params.append(channel)
+        idx += 1
+    if date:
+        conditions.append(f"e.start_time::date = ${idx}::date")
+        params.append(date)
+        idx += 1
+
+    where = " AND ".join(conditions)
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            f"""SELECT e.id, e.channel_tvg_id, e.title, e.description,
+                       e.start_time, e.end_time, e.category,
+                       c.name as channel_name
+                FROM epg_programs e
+                LEFT JOIN channels c ON c.tvg_id = e.channel_tvg_id
+                WHERE {where}
+                ORDER BY e.start_time ASC
+                LIMIT ${idx}""",
+            *params, limit,
+        )
+
+    programs = [{
+        "id": r["id"], "channel_tvg_id": r["channel_tvg_id"],
+        "title": r["title"], "description": r["description"],
+        "start_time": r["start_time"].isoformat(),
+        "end_time": r["end_time"].isoformat(),
+        "category": r["category"],
+        "channel_name": r["channel_name"],
     } for r in rows]
 
     return ApiResponse(success=True, data=programs)

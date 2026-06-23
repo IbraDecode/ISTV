@@ -13,7 +13,7 @@ from app.database import create_pool, close_pool
 from app.middleware.security import SecurityHeadersMiddleware, RateLimitMiddleware
 from app.models.database import CREATE_SCHEMA_SQL
 from app.routers.admin import load_data_on_startup
-from app.routers import channels, categories, epg, playlist, search, stats, admin
+from app.routers import channels, categories, countries, epg, playlist, search, stats, admin
 
 logging.basicConfig(
     level=logging.INFO,
@@ -77,6 +77,7 @@ app.add_middleware(RateLimitMiddleware)
 
 app.include_router(channels.router)
 app.include_router(categories.router)
+app.include_router(countries.router)
 app.include_router(epg.router)
 app.include_router(playlist.router)
 app.include_router(search.router)
