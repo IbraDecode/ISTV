@@ -2,9 +2,8 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
-
+from fastapi import FastAPI, Request, HTTPException
 import uvicorn
-from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -110,6 +109,14 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"success": False, "error": "Internal server error", "code": 500},
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"success": False, "error": exc.detail, "code": exc.status_code},
     )
 
 
