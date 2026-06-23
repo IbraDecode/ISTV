@@ -5,7 +5,7 @@ import httpx
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect, Query
 import uvicorn
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
@@ -242,16 +242,28 @@ async def stream_proxy(url: str = Query(..., description="Stream URL to proxy"))
 
     content_type = cached.get("content-type", "application/octet-stream")
 
-    async def _stream():
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            async with client.stream("GET", url, headers={"User-Agent": "ISTV/3.0"}) as resp:
-                async with resp.stream_bytes() as chunk:
-                    yield chunk
-
-    return StreamingResponse(_stream(), media_type=content_type, headers={
-        "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=60",
-    })
+    try:
+        async with httpx.AsyncClient(timeout=25.0, follow_redirects=True) as client:
+            resp = await client.get(url, headers={"User-Agent": "ISTV/3.0"})
+            return Response(
+                content=resp.content,
+                media_type=content_type,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "public, max-age=60",
+                    "Content-Length": str(len(resp.content)),
+                },
+            )
+    except httpx.TimeoutException:
+        return JSONResponse(
+            status_code=504,
+            content={"success": False, "error": "Proxy timeout", "code": 504},
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=502,
+            content={"success": False, "error": f"Proxy error: {str(e)[:80]}", "code": 502},
+        )
 
 
 @app.websocket("/api/v1/ws/now")

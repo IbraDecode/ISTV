@@ -5,11 +5,12 @@
   <p>
     <a href="https://tv-api.isplay.my.id/api/v1/docs">Swagger Docs</a> ·
     <a href="https://tv-api.isplay.my.id/api/v1/stats">Stats</a> ·
-    <a href="https://tv-api.isplay.my.id/api/v1/playlist.m3u">Playlist M3U</a>
+    <a href="https://tv-api.isplay.my.id/api/v1/channels.csv">CSV</a>
   </p>
   <p>
     <img src="https://img.shields.io/badge/python-3.12-blue" alt="Python"/>
     <img src="https://img.shields.io/badge/FastAPI-0.115-green" alt="FastAPI"/>
+    <img src="https://img.shields.io/badge/version-3.0.0-orange" alt="v3"/>
     <img src="https://img.shields.io/badge/PostgreSQL-NeonDB-purple" alt="NeonDB"/>
     <img src="https://img.shields.io/badge/deploy-Vercel-black" alt="Vercel"/>
   </p>
@@ -62,12 +63,21 @@ curl "https://tv-api.isplay.my.id/api/v1/channels/TVRI.id/similar"
 # Cek ketersediaan stream
 curl "https://tv-api.isplay.my.id/api/v1/channels/TVRI.id/check"
 
+# Export CSV
+curl -o channels.csv "https://tv-api.isplay.my.id/api/v1/channels.csv"
+
+# Proxy stream (bypass CORS/geo)
+curl -o stream.bin "https://tv-api.isplay.my.id/api/v1/proxy?url=https://example.com/file.ts"
+
 # Download playlist
 curl -o playlist.m3u "https://tv-api.isplay.my.id/api/v1/playlist.m3u"
 curl -o playlist-ott.m3u "https://tv-api.isplay.my.id/api/v1/playlist.m3u?ott=true"
 
-# Statistik
+# Statistik + cache metrics
 curl "https://tv-api.isplay.my.id/api/v1/stats"
+
+# Cek kesehatan massal (butuh API key)
+curl -X POST "https://tv-api.isplay.my.id/api/v1/admin/health-check?limit=5" -H "x-api-key: bacotbacot"
 
 # Daftar negara
 curl "https://tv-api.isplay.my.id/api/v1/countries"
@@ -131,13 +141,15 @@ curl "https://tv-api.isplay.my.id/api/v1/countries"
 
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
-| GET | `/api/v1/epg` | Semua jadwal (filter: `channel`, `date`) |
-| GET | `/api/v1/epg/now` | Acara sedang tayang (filter: placeholder otomatis) |
+| GET | `/api/v1/epg` | Semua jadwal (filter: `channel`, `date`, `filter_placeholder`) |
+| GET | `/api/v1/epg/now` | Acara sedang tayang (placeholder otomatis difilter) |
 | GET | `/api/v1/epg/now?upcoming=true` | Acara sekarang + berikutnya |
 | GET | `/api/v1/epg/now/{tvg_id}` | Acara sekarang di channel tertentu |
+| GET | `/api/v1/epg/now/{tvg_id}?upcoming=true` | Acara sekarang + berikutnya di channel tertentu |
 | GET | `/api/v1/epg/{tvg_id}` | Jadwal channel tertentu |
 | GET | `/api/v1/epg/search` | Cari program EPG (pagination + multi-field) |
 | GET | `/api/v1/epg/upcoming` | Program yang akan tayang (parameter `hours`) |
+| GET | `/api/v1/epg/program/{id}` | Detail program EPG (termasuk channel info)
 
 **Parameter EPG Search:**
 
@@ -174,15 +186,31 @@ curl "https://tv-api.isplay.my.id/api/v1/countries"
 
 **Filter playlist:** `?group=`, `?type=hls`, `?ott=true` (no DRM), `?limit=N`
 
+### Tools & Export
+
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| GET | `/api/v1/channels.csv` | Export semua channel ke CSV |
+| GET | `/api/v1/proxy?url=` | Proxy stream (bypass CORS/geo restriction) |
+| WebSocket | `/api/v1/ws/now` | Live update acara sedang tayang (setiap 30 detik) |
+
 ### Stats & System
 
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
-| GET | `/api/v1/stats` | Statistik lengkap + cache metrics |
+| GET | `/api/v1/stats` | Statistik lengkap + cache metrics (hit/miss ratio) |
 | GET | `/health` | Health check |
-| POST | `/api/v1/admin/reload` | Reload data dari source |
 | GET | `/api/v1/docs` | Swagger UI |
 | GET | `/api/v1/redoc` | ReDoc UI |
+
+### Admin (butuh API key: `X-API-Key: bacotbacot`)
+
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| POST | `/api/v1/admin/reload` | Reload data dari source M3U & EPG |
+| POST | `/api/v1/admin/cleanup-epg` | Hapus placeholder "Jadwal belum tersedia" + duplikat |
+| POST | `/api/v1/admin/flush-cache` | Hapus semua cache in-memory |
+| GET | `/api/v1/admin/health-check` | Cek ketersediaan stream massal (random N channel) |
 
 ---
 
@@ -245,6 +273,8 @@ ISTV API menerapkan lapisan keamanan berlapis:
 | **SQL Injection** | 100% parameterized queries (`$1`, `$2`, ...) |
 | **Input Validation** | Pydantic validasi tipe, length, regex |
 | **Error Handling** | No stack trace di production, consistent error codes |
+| **API Key** | Admin endpoints dilindungi `X-API-Key` header |
+| **GZip** | Kompresi response otomatis untuk ukuran >1KB |
 | **CORS** | Terkontrol via environment |
 | **HTTPS Only** | HSTS preload |
 
@@ -259,8 +289,25 @@ ISTV API menerapkan lapisan keamanan berlapis:
 | **Database** | PostgreSQL (NeonDB) |
 | **Cache** | In-memory LRU (max 500 entries, hit/miss metrics via `/stats`) |
 | **Parser** | Custom M3U & XMLTV parser |
+| **Proxy** | Stream proxy via httpx (bypass CORS/geo) |
+| **WebSocket** | Live EPG push (30s interval) |
 | **Deploy** | Vercel (serverless) / Docker |
-| **Auto-Reload** | GitHub Actions (daily) |
+| **CI/CD** | GitHub Actions (auto-reload data setiap hari + manual trigger) |
+
+---
+
+## Konfigurasi Environment
+
+| Variable | Default | Deskripsi |
+|----------|---------|-----------|
+| `DATABASE_URL` | — | PostgreSQL connection string (NeonDB) |
+| `M3U_URL` | — | URL source M3U playlist |
+| `EPG_URL` | — | URL source XMLTV EPG |
+| `ADMIN_API_KEY` | `bacotbacot` | API key untuk admin endpoints |
+| `API_RATE_LIMIT` | `100` | Max request per window per IP |
+| `API_RATE_WINDOW` | `60` | Window rate limit (detik) |
+| `CORS_ORIGINS` | `*` | Allowed CORS origins |
+| `ENVIRONMENT` | `production` | `production` / `development` |
 
 ---
 
