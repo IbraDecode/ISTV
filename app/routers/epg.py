@@ -102,6 +102,7 @@ async def get_now_playing(
                     """SELECT title, start_time, end_time
                        FROM epg_programs
                        WHERE channel_tvg_id = $1 AND start_time > $2
+                         AND title != 'Jadwal belum tersedia'
                        ORDER BY start_time ASC LIMIT 1""",
                     p["channel_tvg_id"], now,
                 )
@@ -159,6 +160,7 @@ async def get_channel_now(tvg_id: str, upcoming: bool = Query(False, description
                       start_time, end_time, category
                FROM epg_programs
                WHERE channel_tvg_id = $1 AND start_time <= $2 AND end_time > $2
+                 AND title != 'Jadwal belum tersedia'
                LIMIT 1""",
             tvg_id, now,
         )
@@ -180,6 +182,7 @@ async def get_channel_now(tvg_id: str, upcoming: bool = Query(False, description
                 """SELECT title, start_time, end_time
                    FROM epg_programs
                    WHERE channel_tvg_id = $1 AND start_time > $2
+                     AND title != 'Jadwal belum tersedia'
                    ORDER BY start_time ASC LIMIT 1""",
                 tvg_id, now,
             )
@@ -229,6 +232,8 @@ async def search_epg(
         conditions.append(f"e.start_time::date = ${idx}::date")
         params.append(date)
         idx += 1
+
+    conditions.append("e.title != 'Jadwal belum tersedia'")
 
     where = " AND ".join(conditions)
 
@@ -290,6 +295,8 @@ async def get_upcoming_epg(
     params = [now, later]
     idx = 3
 
+    conditions.append("e.title != 'Jadwal belum tersedia'")
+
     if channel:
         conditions.append(f"e.channel_tvg_id = ${idx}")
         params.append(channel)
@@ -347,7 +354,7 @@ async def get_channel_epg(
     pool = await get_pool()
     async with pool.acquire() as conn:
         total = (await conn.fetchval(
-            "SELECT COUNT(*) FROM epg_programs WHERE channel_tvg_id = $1 AND end_time > $2",
+            "SELECT COUNT(*) FROM epg_programs WHERE channel_tvg_id = $1 AND end_time > $2 AND title != 'Jadwal belum tersedia'",
             tvg_id, now,
         )) or 0
         offset = (page - 1) * limit
@@ -356,6 +363,7 @@ async def get_channel_epg(
                       start_time, end_time, category
                 FROM epg_programs
                 WHERE channel_tvg_id = $1 AND end_time > $2
+                  AND title != 'Jadwal belum tersedia'
                 ORDER BY start_time ASC
                  LIMIT $3 OFFSET $4""",
              tvg_id, now, limit, offset,
