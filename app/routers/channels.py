@@ -2,6 +2,7 @@ import math
 import json
 from typing import Optional
 from datetime import datetime, timezone
+import httpx
 from fastapi import APIRouter, Query, HTTPException
 
 from app.database import get_pool
@@ -230,6 +231,54 @@ async def get_channel_stream(tvg_id: str):
         "drm_info": _parse(r["drm_info"]),
         "type": r["stream_type"],
     })
+
+
+@router.get("/api/v1/channels/{tvg_id}/check", response_model=ApiResponse)
+async def check_channel_stream(tvg_id: str, timeout: int = Query(5, ge=1, le=15)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        r = await conn.fetchrow(
+            """SELECT url, headers, has_drm, drm_info, stream_type
+               FROM channels WHERE tvg_id = $1 AND is_active = TRUE""",
+            tvg_id,
+        )
+    if not r:
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    url = r["url"]
+    headers = _parse(r["headers"])
+    stream_type = r["stream_type"]
+    result = {
+        "tvg_id": tvg_id,
+        "url": url,
+        "stream_type": stream_type,
+        "has_drm": r["has_drm"],
+        "reachable": False,
+        "status_code": None,
+        "response_time_ms": None,
+        "error": None,
+    }
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(timeout),
+            follow_redirects=True,
+            headers={"User-Agent": "ISTV/1.0"} if not headers else {**headers, "User-Agent": "ISTV/1.0"},
+        ) as client:
+            start = datetime.now(timezone.utc)
+            resp = await client.head(url)
+            elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
+            result["status_code"] = resp.status_code
+            result["response_time_ms"] = round(elapsed, 1)
+            result["reachable"] = resp.status_code < 500
+    except httpx.TimeoutException:
+        result["error"] = "timeout"
+    except httpx.ConnectError as e:
+        result["error"] = f"connection_error: {str(e)[:80]}"
+    except Exception as e:
+        result["error"] = str(e)[:120]
+
+    return ApiResponse(success=True, data=result)
 
 
 @router.get("/api/v1/channels/{tvg_id}/similar", response_model=ApiResponse)

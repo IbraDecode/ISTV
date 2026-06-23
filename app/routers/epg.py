@@ -74,7 +74,7 @@ async def get_now_playing(
                       e.start_time, e.end_time, e.category
                FROM epg_programs e
                JOIN channels c ON c.tvg_id = e.channel_tvg_id AND c.is_active = TRUE
-               WHERE e.start_time <= $1 AND e.end_time > $1
+               WHERE e.start_time <= $1 AND e.end_time > $1 AND e.title != 'Jadwal belum tersedia'
                ORDER BY e.channel_tvg_id ASC
                LIMIT $2""",
             now, limit,

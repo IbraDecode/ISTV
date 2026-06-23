@@ -1,16 +1,16 @@
 from fastapi import APIRouter
 
 from app.database import get_pool
-from app.cache import get as cache_get, set as cache_set
+from app import cache
 
 router = APIRouter(tags=["Stats"])
 
 
 @router.get("/api/v1/stats")
 async def get_stats():
-    cached = cache_get("stats:all")
+    cached = cache.get("stats:all")
     if cached:
-        return {"success": True, "data": cached}
+        return {"success": True, "data": {**cached, "cache": cache.stats()}}
 
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -38,6 +38,5 @@ async def get_stats():
             for r in top_cats
         ],
     }
-
-    cache_set("stats:all", data, 60)
-    return {"success": True, "data": data}
+    cache.set("stats:all", data, 60)
+    return {"success": True, "data": {**data, "cache": cache.stats()}}
