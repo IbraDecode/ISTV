@@ -75,6 +75,7 @@ async def search_all(
     limit_channels: int = Query(10, ge=1, le=50, description="Max channels"),
     limit_epg: int = Query(10, ge=1, le=50, description="Max EPG programs"),
 ):
+    """Cari channel dan program EPG sekaligus dalam satu request. Hasil digabung dalam object `channels` dan `epg_programs`."""
     cache_key = f"sall:{q}:{limit_channels}:{limit_epg}"
     cached = cache_get(cache_key)
     if cached:

@@ -15,7 +15,9 @@ async def list_epg(
     date: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=500),
+    filter_placeholder: bool = Query(True, description="Filter out 'Jadwal belum tersedia'"),
 ):
+    """Semua jadwal EPG dengan filter channel, date, dan pagination."""
     cache_key = f"epg:l:{channel}:{date}:{page}:{limit}"
     cached = cache_get(cache_key)
     if cached:
@@ -32,6 +34,8 @@ async def list_epg(
         conditions.append(f"start_time::date = ${idx}::date")
         params.append(date)
         idx += 1
+    if filter_placeholder:
+        conditions.append("title != 'Jadwal belum tersedia'")
 
     where = " AND " + " AND ".join(conditions) if conditions else ""
 
@@ -66,6 +70,7 @@ async def get_now_playing(
     limit: int = Query(50, ge=1, le=200),
     upcoming: bool = Query(False, description="Include next program"),
 ):
+    """Acara yang sedang tayang sekarang di semua channel. Placeholder otomatis difilter. Tambahkan `?upcoming=true` untuk menyertakan program berikutnya."""
     now = datetime.now(timezone.utc)
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -113,6 +118,7 @@ async def get_now_playing(
 
 @router.get("/api/v1/epg/program/{program_id}", response_model=ApiResponse)
 async def get_program_detail(program_id: int):
+    """Detail lengkap program EPG berdasarkan ID. Termasuk nama channel, logo, dan URL stream."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         r = await conn.fetchrow(
@@ -195,6 +201,7 @@ async def search_epg(
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
 ):
+    """Cari program EPG berdasarkan judul, deskripsi, atau keduanya (`fields=all`). Mendukung pagination dan filter channel/date."""
     pool = await get_pool()
     search_like = f"%{q}%"
     idx = 1
@@ -271,6 +278,7 @@ async def get_upcoming_epg(
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(50, ge=1, le=200, description="Items per page"),
 ):
+    """Program EPG yang akan tayang dalam N jam ke depan. Filter berdasarkan channel. Di-cache 30 detik."""
     now = datetime.now(timezone.utc)
     later = now + timedelta(hours=hours)
     cache_key = f"epg:up:{hours}:{channel}:{page}:{limit}"

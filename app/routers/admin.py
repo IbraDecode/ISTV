@@ -169,6 +169,10 @@ async def load_data_on_startup():
 
 @router.post("/api/v1/admin/reload")
 async def reload_data():
+    """
+    Reload semua data dari source M3U & EPG URL.
+    Akan menghapus data lama dan mengisi ulang.
+    """
     settings = get_settings()
     if not settings.m3u_url or not settings.epg_url:
         raise HTTPException(status_code=400, detail="M3U_URL or EPG_URL not configured")
@@ -189,3 +193,37 @@ async def reload_data():
 
     result = await _load_data_into_db(m3u_resp.text, epg_resp.text)
     return {"success": True, "data": result}
+
+
+@router.post("/api/v1/admin/cleanup-epg")
+async def cleanup_epg_placeholders():
+    """
+    Hapus program EPG placeholder ("Jadwal belum tersedia") dari database.
+    Juga hapus duplikat program yang memiliki id sama.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            deleted = await conn.execute(
+                "DELETE FROM epg_programs WHERE title = 'Jadwal belum tersedia'"
+            )
+            deleted = int(deleted.split()[-1])
+
+            dedup = await conn.execute(
+                """DELETE FROM epg_programs e
+                   USING epg_programs d
+                   WHERE e.id < d.id
+                     AND e.channel_tvg_id = d.channel_tvg_id
+                     AND e.title = d.title
+                     AND e.start_time = d.start_time
+                     AND e.end_time = d.end_time"""
+            )
+            dedup = int(dedup.split()[-1])
+
+    return {
+        "success": True,
+        "data": {
+            "deleted_placeholders": deleted,
+            "deleted_duplicates": dedup,
+        },
+    }

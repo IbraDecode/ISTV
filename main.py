@@ -47,12 +47,31 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="ISTV API",
-    description="Free IPTV Channel API — Daftar channel TV live dari Indonesia & 27+ negara",
-    version="1.0.0",
+    description="""
+Free IPTV Channel API — 1.045+ channel TV live dari Indonesia & 27+ negara.
+
+Dibuat oleh [IbraDecode](https://github.com/IbraDecode) · Decode Labs
+
+## Fitur
+- **1.045+ channel** live TV dari 29 negara (HLS, DASH, TS)
+- **22.607+ program EPG** dengan jadwal now/next/upcoming
+- **Multi-format playlist**: M3U, JSON, XML
+- **Pencarian** channel + program EPG (multi-field)
+- **Filter** grup, negara, tipe stream, DRM
+- **Channel acak** & channel serupa
+- **Cek ketersediaan stream** langsung
+- **Cache pintar** LRU dengan hit/miss metrics
+- **Keamanan** rate limiting, security headers, parameterized queries
+    """,
+    version="2.0.0",
     lifespan=lifespan,
     docs_url="/api/v1/docs",
     redoc_url="/api/v1/redoc",
     openapi_url="/api/v1/openapi.json",
+    contact={
+        "name": "IbraDecode",
+        "url": "https://github.com/IbraDecode",
+    },
 )
 
 settings = get_settings()

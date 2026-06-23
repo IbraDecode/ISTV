@@ -102,6 +102,7 @@ async def get_random_channels(
     group: Optional[str] = Query(None, description="Filter by group/category"),
     type: Optional[str] = Query(None, alias="type", description="Stream type: hls, dash"),
 ):
+    """Ambil channel secara acak. Termasuk program yang sedang tayang (epg_now). Hasil di-cache 1 jam."""
     cache_key = f"ch:rand:{limit}:{group}:{type}"
     cached = cache_get(cache_key)
     if cached:
@@ -235,6 +236,7 @@ async def get_channel_stream(tvg_id: str):
 
 @router.get("/api/v1/channels/{tvg_id}/check", response_model=ApiResponse)
 async def check_channel_stream(tvg_id: str, timeout: int = Query(5, ge=1, le=15)):
+    """Cek ketersediaan stream channel. Kirim HEAD request ke URL stream dan report status code + response time."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         r = await conn.fetchrow(
@@ -286,6 +288,7 @@ async def get_similar_channels(
     tvg_id: str,
     limit: int = Query(10, ge=1, le=50, description="Number of similar channels"),
 ):
+    """Cari channel serupa berdasarkan kategori yang sama. Hasil diacak."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         channel = await conn.fetchrow(
