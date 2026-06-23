@@ -86,6 +86,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             response.headers["X-RateLimit-Limit"] = str(settings.api_rate_limit)
             response.headers["X-RateLimit-Remaining"] = str(remaining)
             return response
+        except Exception as e:
+            logger.warning(f"Rate limit error: {e}")
+            return await call_next(request)
 
     def _get_client_ip(self, request: Request) -> str:
         forwarded = request.headers.get("X-Forwarded-For")
