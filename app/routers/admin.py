@@ -10,6 +10,48 @@ from app.config import get_settings
 
 router = APIRouter(tags=["Admin"])
 
+COUNTRY_MAP = {
+    "TV JEPANG": "Japan", "Japan": "Japan",
+    "Korea": "South Korea", "Korea Selatan": "South Korea",
+    "Korean Channels": "South Korea",
+    "United States": "United States", "US": "United States",
+    "United Kingdom": "United Kingdom", "UK": "United Kingdom",
+    "Brazil": "Brazil", "India": "India", "Thailand": "Thailand",
+    "Malaysia": "Malaysia", "TV Malaysia": "Malaysia",
+    "Singapore": "Singapore", "Mediacorp Singapore": "Singapore",
+    "China": "China", "Turkey": "Turkey", "Turki": "Turkey",
+    "Germany": "Germany", "Jerman": "Germany",
+    "France": "France", "Perancis": "France",
+    "Russia": "Russia", "Rusia": "Russia",
+    "Italy": "Italy", "Italia": "Italy",
+    "Spain": "Spain", "Spanyol": "Spain",
+    "Mexico": "Mexico", "Meksiko": "Mexico",
+    "Philippines": "Philippines", "Filipina": "Philippines",
+    "Vietnam": "Vietnam", "Egypt": "Egypt", "Mesir": "Egypt",
+    "Saudi Arabia": "Saudi Arabia",
+    "Nigeria": "Nigeria", "South Africa": "South Africa",
+    "Afrika Selatan": "South Africa",
+    "Bangladesh": "Bangladesh", "Iran": "Iran",
+    "Pakistan": "Pakistan", "Kenya": "Kenya",
+    "Argentina": "Argentina", "Colombia": "Colombia",
+    "Kolombia": "Colombia", "UAE & Arab": "UAE", "UAE": "UAE",
+    "Indonesia": "Indonesia", "Lokal": "Indonesia",
+    "Local Channels": "Indonesia",
+    "Indonesia Channels": "Indonesia",
+    "NASIONAL": "Indonesia",
+    "TVRI GROUP": "Indonesia", "TVRI": "Indonesia",
+    "TV HIBURAN": "Indonesia",
+    "Bola Indonesia": "Indonesia",
+    "WorldCup 2026": "International",
+}
+
+
+def detect_country(group_name: str) -> str:
+    for key, country in COUNTRY_MAP.items():
+        if key.lower() in group_name.lower():
+            return country
+    return ""
+
 
 async def _load_data_into_db(m3u_text: str, epg_text: str) -> dict:
     channels = parse_m3u(m3u_text)
@@ -31,10 +73,12 @@ async def _load_data_into_db(m3u_text: str, epg_text: str) -> dict:
 
             for ch in channels:
                 cat_id = cat_map.get(ch.group)
+                country = detect_country(ch.group)
                 await conn.execute(
                     """INSERT INTO channels
-                       (tvg_id, name, logo, category_id, url, stream_type, has_drm, drm_info, headers, kodiprops)
-                       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb)""",
+                       (tvg_id, name, logo, category_id, url, stream_type,
+                        has_drm, drm_info, headers, kodiprops, country)
+                       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11)""",
                     ch.tvg_id,
                     ch.name,
                     ch.logo,
@@ -45,6 +89,7 @@ async def _load_data_into_db(m3u_text: str, epg_text: str) -> dict:
                     json.dumps(ch.drm_info) if ch.drm_info else None,
                     json.dumps(ch.headers) if ch.headers else "{}",
                     json.dumps(ch.kodiprops) if ch.kodiprops else "{}",
+                    country,
                 )
 
             for cat_name, cat_id in cat_map.items():

@@ -1,0 +1,30 @@
+name: Auto-Reload ISTV Data
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # 07:00 WIB (00:00 UTC)
+  workflow_dispatch:        # manual trigger
+
+jobs:
+  reload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install asyncpg httpx
+
+      - name: Reload data into NeonDB
+        run: python scripts/reload_data.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          M3U_URL: ${{ secrets.M3U_URL }}
+          EPG_URL: ${{ secrets.EPG_URL }}
