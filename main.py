@@ -41,6 +41,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
 
 
 async def _broadcast_now():
+    global _ws_clients
     while True:
         await asyncio.sleep(30)
         if not _ws_clients:
